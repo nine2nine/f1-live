@@ -11,22 +11,17 @@ on:
     - cron: "13,43 * * * *"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 # one publish at a time; a queued one waits rather than cancelling a deploy halfway
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-26.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: read
     steps:
       # each action at an exact commit (its version beside it), so a moved tag can't change what runs; Dependabot updates them
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
@@ -73,5 +68,31 @@ jobs:
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9   # v5.0.0 (leaves out .git and .github)
         with:
           path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # The upload can finish before the Actions API lists the artifact (#451 in actions/deploy-pages).
+      - name: Wait for Pages artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          endpoint="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=github-pages"
+          for attempt in {1..15}; do
+            if [ "$(gh api "$endpoint" --jq '.total_count')" = "1" ]; then
+              exit 0
+            fi
+            sleep 4
+          done
+          echo "::error::The Pages artifact is still unavailable after one minute"
+          exit 1
       - id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346   # v5.0.1
