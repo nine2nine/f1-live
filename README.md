@@ -70,6 +70,8 @@ Use **Cyberpunk** in the Live header to switch to the neon appearance and back t
 
 Open **Laps** on a phone or **Lap times** by the timing tower on a larger screen. Pick a driver to see their completed laps and S1, S2, and S3 times. Pick a comparison driver and lap to see the differences in seconds. Live history records timing while the Live tab is open and follows TV sync. **Show all replay laps** makes the whole recorded session available for comparison. The timing tower shows the current tyre compound beside each driver.
 
+On **Track**, use the dropdown below the map to see a driver's latest lap splits and personal bests so far. Choose **All drivers** to return to the fastest-sector leaderboard.
+
 Nothing these sources send is written onto the page as it comes: names and messages are escaped, a team colour is hex digits or it's shown grey, and a change in the live feed can't be filed under a name that would reach every object on the page (`tools/check.mjs` tries both).
 
 ## Run it on your computer
