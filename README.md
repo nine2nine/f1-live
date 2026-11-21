@@ -4,7 +4,7 @@
 
 A free Formula 1 companion in the browser: live timing, the track on a real 3D map, race control, weather, the season calendar in your own time zone, standings, full replays with car telemetry, and lap battles. No account, no ads, no tracking.
 
-- **Website:** https://isaraapae.github.io/f1-live/
+- **Website:** https://nine2nine.github.io/f1-live/
 - **Built with:** plain JavaScript modules, HTML and CSS: no framework, no packages, nothing to build (the publish only minifies). [MapLibre](https://maplibre.org) draws the real map, [three.js](https://threejs.org) the 3D cars and [MediaPipe](https://github.com/google-ai-edge/mediapipe) cuts out 2023's photos, each loaded from a CDN only when a page needs it. Hosted on GitHub Pages, published by GitHub Actions.
 
 In the same style as the [Alert Watch](https://github.com/IsaraApae/alert-watch) LINE cards: each driver as their code and car number (RUS 63), lists on their team's colour stripe, faces cut out. On a phone, in light and dark:
@@ -63,6 +63,8 @@ OpenF1 allows 30 requests a minute; `js/api.js` queues requests and waits when i
 
 Live car positions on the map are worked out from Formula 1's mini-sector marks (exact positions are only on F1 TV): `js/livepos.js` runs each car through every mini-sector at its own pace from its last lap, and the drawn car speeds up or slows down a little to stay with the marks, so it never jumps or goes backwards (checked by `tools/check.mjs`).
 
+Open **TV sync** on the Live tab to delay the timing, map, flags, and radio together. **Set 20s** is a starting point. The slider covers 0–120 seconds, and the buttons adjust by one second. During a race, tap **Match TV lap** as the leader crosses the start/finish line on your broadcast. The app needs to have received a lap change first. Increasing the delay holds the display while the broadcast catches up. **Go live** releases the buffer, and the app saves the chosen delay on the device.
+
 Nothing these sources send is written onto the page as it comes: names and messages are escaped, a team colour is hex digits or it's shown grey, and a change in the live feed can't be filed under a name that would reach every object on the page (`tools/check.mjs` tries both).
 
 ## Run it on your computer
@@ -72,6 +74,8 @@ python -m http.server 8000
 ```
 
 Then open http://localhost:8000. There's no build step and nothing to install, and no environment variables or API keys: every data source is free and public. To see headlines locally, run `node scripts/news.mjs` once first (it writes `news.json`). `node tools/check.mjs` runs the same checks as a publish.
+
+To install on a phone, open the HTTPS site in Safari on iPhone and choose **Share → Add to Home Screen → Open as Web App**, or open Chrome's menu on Android and choose **Install and create shortcut → Install**. The home-screen app opens directly to Live.
 
 `index.html?feed=ws://localhost:PORT` points the Live tab at a local test feed instead of Formula 1's (only `localhost` and `127.0.0.1` are accepted).
 
