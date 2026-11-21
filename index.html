@@ -33,8 +33,10 @@
   // appearance before the page draws, so it never flashes the wrong colours
   (function () {
     var pick = "dark"; try { pick = JSON.parse(localStorage.getItem("f1.theme")) || "dark"; } catch (e) {}
-    var dark = pick === "dark" || (pick === "device" && matchMedia("(prefers-color-scheme: dark)").matches);
+    var dark = pick === "dark" || pick === "cyberpunk" || (pick === "device" && matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.mode = dark ? "dark" : "light";
+    document.documentElement.dataset.theme = pick;
+    document.querySelector('meta[name="theme-color"]').content = pick === "cyberpunk" ? "#090b18" : dark ? "#0b0b10" : "#eef0f4";
   })();
   // a LINE card opens a replay, a full result or the Live tab (?replay=KEY, ?result=KEY, ?live): fetch that page's modules now,
   // alongside main.js, instead of one layer of imports at a time after it has started (the same for those pages' own #/ links)

@@ -37,7 +37,7 @@ In the same style as the [Alert Watch](https://github.com/IsaraApae/alert-watch)
 | **Replays** | Any session since 2023, rebuilt lap by lap, on the same timing screen, opened from a weekend's page, Home or Live. Plus analysis: fastest laps, overtakes, track dominance between drivers, and car telemetry (speed, gear, throttle, brake, RPM, DRS) for the driver you follow. A finished session's data is kept in the browser (its cache storage, the last 250 answers), so a replay opened again loads in under a second; Settings → clear saved data removes it. A session OpenF1 never recorded (Las Vegas 2026 FP1 has no laps or result there) says so: "No times for this session" on its weekend card, and a note above its replay's timing. |
 | **Lap battle** | Two drivers' laps raced against each other round the circuit at 60 fps, with speed, throttle, brake and the time gap, in the site's dark or light look. Save it as a video to share. |
 | **News** | Headlines from F1 publishers, linking to their articles. |
-| **Settings** | Dark, light or device appearance, 12- or 24-hour clock, your driver and team, alerts. The site also follows the device's reduce-motion setting: nothing shimmers, pulses or flashes (a yellow sector stays lit). |
+| **Settings** | Dark, light, device, or Cyberpunk appearance, 12- or 24-hour clock, your driver and team, alerts. The site also follows the device's reduce-motion setting: nothing shimmers, pulses or flashes (a yellow sector stays lit). |
 
 **Results after the race.** Jolpica can keep a race's result from before the stewards' post-race penalties for days (Mexico 2026: Hirakawa 13th with no points, officially 10th with 1). For this season's latest race, `js/final.js` puts what Jolpica says right from OpenF1's result: the race's positions and points, and the drivers' and teams' points, wins and order on Home, Standings and the driver and team pages. If OpenF1 can't be reached, Jolpica's figures are shown as they are. `?result=KEY` (the LINE cards' **Full result**) opens that session's weekend page with every driver, scrolled to it.
 
@@ -64,6 +64,8 @@ OpenF1 allows 30 requests a minute; `js/api.js` queues requests and waits when i
 Live car positions on the map are worked out from Formula 1's mini-sector marks (exact positions are only on F1 TV): `js/livepos.js` runs each car through every mini-sector at its own pace from its last lap, and the drawn car speeds up or slows down a little to stay with the marks, so it never jumps or goes backwards (checked by `tools/check.mjs`).
 
 Open **TV sync** on the Live tab to delay the timing, map, flags, and radio together. **Set 20s** is a starting point. The slider covers 0–120 seconds, and the buttons adjust by one second. During a race, tap **Match TV lap** as the leader crosses the start/finish line on your broadcast. The app needs to have received a lap change first. Increasing the delay holds the display while the broadcast catches up. **Go live** releases the buffer, and the app saves the chosen delay on the device.
+
+Use **Cyberpunk** in the Live header to switch to the neon appearance and back to your previous theme. It is also available under **Settings → Appearance**. The track camera uses a night palette in Cyberpunk.
 
 Nothing these sources send is written onto the page as it comes: names and messages are escaped, a team colour is hex digits or it's shown grey, and a change in the live feed can't be filed under a name that would reach every object on the page (`tools/check.mjs` tries both).
 

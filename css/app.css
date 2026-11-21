@@ -21,6 +21,15 @@
   --purple: #9333ea; --green: #16a34a; --yellow: #ca8a04; --red: #e10600; --red-ink: #d10500; --blue: #2563eb; --amber: #d97706; --shadow: rgba(0, 0, 0, .12);
   --tag-mix: 14%; --tag-ink: #000; --tag-ink-mix: 78%; --hover: rgba(0, 0, 0, .03); color-scheme: light;
 }
+:root[data-theme="cyberpunk"] {
+  --bg: #090b18; --panel: #101529; --panel2: #191f38; --row: #141a30; --line: #303d5c;
+  --text: #f1f4ff; --dim: #a7b5d1; --seg: #0b1123; --chip: #222d49; --chip-ink: #b8c7df; --input: #0b1123;
+  --map: #0b1227; --track: #b7fffb; --track-edge: #344775; --corner: #17223e; --corner-text: #d6e1ff; --pit-lane: #94a9d8;
+  --tag-bg: #0b1123; --tag-fg: #f1f4ff; --tag-line: #53678e; --hover: rgba(104, 246, 233, .09);
+  --blue: #8fb8ff; --purple: #d89bff; --green: #63e49b; --red-ink: #ff8087;
+  --signal: #68f6e9; --pink: #ff79c6; --trace: #2f6276; --radius: 7px; --slot-r: 5px;
+  --telemetry-font: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
 :root { --display: "Titillium Web", "Segoe UI", system-ui, sans-serif; --rail: 228px; --tabbar: 64px; --radius: 16px; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -52,6 +61,10 @@ h1, h2, h3 { font-family: var(--display); }
 .appbar h1 { margin: 0; font-size: 22px; font-weight: 900; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.2px; }
 .appbar .brand { padding: 0; }
 .appbar-tools { display: flex; gap: 6px; align-items: center; }
+.theme-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); cursor: pointer; font-size: 12px; font-weight: 800; }
+.theme-switch svg { width: 16px; height: 16px; fill: currentColor; }
+.theme-switch[aria-pressed="true"] { color: var(--signal); border-color: var(--trace); border-radius: 4px; }
 .iconbtn { all: unset; cursor: pointer; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--chip); color: var(--text); flex: 0 0 38px; }
 .iconbtn svg { width: 20px; height: 20px; fill: currentColor; }
 .iconbtn:hover { filter: brightness(1.15); }
@@ -67,6 +80,7 @@ main { flex: 1; outline: none; }
   .phone-only { display: flex !important; }
   .phone-only[hidden] { display: none !important; }
   .appbar { padding: 8px 16px; padding-top: calc(8px + env(safe-area-inset-top)); min-height: 54px; }
+  .appbar:has(.theme-switch) { padding-block: calc(5px + env(safe-area-inset-top)) 5px; }
   .appbar h1 { font-size: 20px; }
   .view { padding: 14px 16px 20px; gap: 14px; }
   .page { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom)); }
@@ -225,11 +239,13 @@ img[src$="#invert"], img.inv { filter: brightness(0) invert(1); }
 .toggles label, .toggles .trow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); cursor: pointer; font-weight: 700; }
 .toggles label:first-child, .toggles .trow:first-child { border-top: 0; }
 .toggles small { display: block; color: var(--dim); font-weight: 600; font-size: 11.5px; }
-.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .tiles button { all: unset; cursor: pointer; border-radius: 14px; background: var(--panel2); border: 1.5px solid var(--line); padding: 14px 8px; display: grid; justify-items: center; gap: 8px; font-weight: 800; }
 .tiles button svg { width: 24px; height: 24px; fill: var(--dim); }
 .tiles button[aria-pressed="true"] { border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, var(--panel2)); }
 .tiles button[aria-pressed="true"] svg { fill: var(--red); }
+.tiles button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (max-width: 440px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* home */
 .home-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end; }
@@ -329,3 +345,30 @@ img[src$="#invert"], img.inv { filter: brightness(0) invert(1); }
   box-shadow: inset 4px 0 0 var(--tc, transparent), inset 0 0 0 1px color-mix(in srgb, var(--red) 50%, transparent); }
 :root:root .wkd-move b, :root:root .wkd-move em { color: var(--red-ink); }
 :root:root .wkd-move em { background: none; padding: 0; margin-left: -2px; }
+
+/* Cyberpunk uses cool controls and leaves race-status colours for flags and timing. */
+[data-theme="cyberpunk"] .page {
+  background-image: linear-gradient(180deg, #171932 0, transparent 310px),
+    linear-gradient(#25335455 1px, transparent 1px), linear-gradient(90deg, #25335455 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+}
+[data-theme="cyberpunk"] .appbar {
+  border-image: linear-gradient(90deg, var(--signal) 0 3rem, var(--trace) 3rem 72%, var(--pink)) 1;
+}
+[data-theme="cyberpunk"] .appbar h1 { letter-spacing: .045em; }
+[data-theme="cyberpunk"] .card-h { font-family: var(--telemetry-font); letter-spacing: .08em; }
+[data-theme="cyberpunk"] .card-h small { font-family: system-ui, sans-serif; }
+[data-theme="cyberpunk"] .rail-links a.on,
+[data-theme="cyberpunk"] .tabbar a.on { background: #13263a; color: var(--signal); box-shadow: inset 0 2px var(--signal); }
+[data-theme="cyberpunk"] .rail-links a.on svg,
+[data-theme="cyberpunk"] .tabbar a.on svg { fill: var(--signal); }
+[data-theme="cyberpunk"] .seg button,
+[data-theme="cyberpunk"] .rail-links a,
+[data-theme="cyberpunk"] .tiles button { border-radius: 5px; }
+[data-theme="cyberpunk"] .seg button[aria-pressed="true"],
+[data-theme="cyberpunk"] .tiles button[aria-pressed="true"] {
+  background: #183142; color: var(--signal); box-shadow: inset 0 -2px var(--signal);
+}
+[data-theme="cyberpunk"] .tiles button[aria-pressed="true"] { border-color: var(--trace); }
+[data-theme="cyberpunk"] .tiles button[aria-pressed="true"] svg { fill: var(--signal); }
+[data-theme="cyberpunk"] .badge.blue { background: #203c63; color: #d8e8ff; }

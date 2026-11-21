@@ -1071,7 +1071,10 @@ const RIDES = new Set(["heli", "road", "driver"]);
 let canRide = false;
 const viewNow = () => RIDES.has(mapView) && !canRide ? "3d" : mapView;   // until then a chosen ride view shows as 3D
 let mapView = "3d", geo = null, geoMaking = null, geoRef = null, geoKey = "", geoToken = 0, inv = null, secCut = null, cornerLabels = [];
-const isDark = () => document.documentElement.dataset.mode === "dark";
+const mapTheme = () => {
+  const { theme, mode } = document.documentElement.dataset;
+  return theme === "cyberpunk" ? theme : mode;
+};
 // a point of the flat outline (screen units) back to F1's coordinates, then to [lng, lat]
 const toGeo = (sx, sy) => { const { minX, minY, ox, oy, k, h, rot } = inv, [x, y] = rotate(minX + (sx - ox) / k, minY + (h - sy - oy) / k, -rot); return geoRef.toLngLat(x, y); };
 let geoRefP = null;
@@ -1092,10 +1095,11 @@ async function setupGeo() {   // can run several times at once: they share the w
     geoRef = ref;
     if (!geoRef) { $("mapwrap").classList.remove("geo"); return; }   // a circuit the shapes dataset doesn't have: the classic map
     if (!geo) {   // one map per screen
-      const p = geoMaking = geoMaking || G.createMap(box, { dark: isDark(), onCar: n => setFollow(n) });
+      const p = geoMaking = geoMaking || G.createMap(box, { theme: mapTheme(), onCar: n => setFollow(n) });
       const made = await p;
       if (p !== geoMaking) return;   // the screen was closed meanwhile (stop() destroys it)
       geo = made;
+      geo.theme(mapTheme());
     }
     if (screen !== geoToken || geoKey !== key || mapView === "classic") return;
     $("mapwrap").classList.add("geo");   // shown first, so the map knows its size when it frames the circuit
@@ -1706,7 +1710,7 @@ export function mountTiming(el, { replay = null, app = null } = {}) {
   // a tablet turned on its side, or a window made wider: the map's panel is now beside the timing, so its real map starts
   const tabbed = matchMedia("(max-width: 1099px)"), unfold = () => { if (circuit && !geo) setupGeo(); };
   tabbed.addEventListener("change", unfold); offs.push(() => tabbed.removeEventListener("change", unfold));
-  const retheme = () => { champKey = ""; dirty = true; if (geo) geo.theme(isDark()); }; addEventListener("themechange", retheme); offs.push(() => removeEventListener("themechange", retheme));
+  const retheme = () => { champKey = ""; dirty = true; if (geo) geo.theme(mapTheme()); }; addEventListener("themechange", retheme); offs.push(() => removeEventListener("themechange", retheme));
   if (replay) startReplay(+replay); else connect();
   return stop;
 }

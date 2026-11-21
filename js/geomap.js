@@ -7,7 +7,7 @@ import { esc, ink } from "./util.js";
 
 const LIB = "https://cdn.jsdelivr.net/npm/maplibre-gl@6.17.0/dist/";   // (from v6 an ES module only: cdnjs no longer has it)
 const SHAPES = "https://cdn.jsdelivr.net/gh/bacinger/f1-circuits@8094e957b8d6aa8b9f4510c93968556cccd30e02/f1-circuits.geojson";
-const STYLE = dark => `https://tiles.openfreemap.org/styles/${dark ? "dark" : "positron"}`;
+const STYLE = theme => `https://tiles.openfreemap.org/styles/${theme === "light" ? "positron" : "dark"}`;
 const SECTOR_COLOURS = ["#ff3b5c", "#3b9eff", "#ffd60a"];
 // the camera views that ride with a car (the one you follow, else the leader): where the camera is and what it looks at,
 // in metres along the car's way (fwd) and to its left, and its height
@@ -20,9 +20,12 @@ const FOV = 36.87;   // MapLibre's own (vertical, in degrees)
 
 const ROAD = 14, PIT_ROAD = 12, GRASS = 70;   // track, pit lane and the grass along them, wide in metres, for the views up close
 const GARAGE = 11, BOX = 12;   // the garages: how deep and how wide each is (metres)
-// up close it's always a clean, bright day// up close it's always a clean, bright day (whatever the theme): pale ground, mint grass along the track, white buildings, blue sky
+// The close-up view uses daylight by default, with a night palette for Cyberpunk.
 const DAY = { ground: "#e7e8eb", water: "#a9d4f1", grass: "#c4e8b4", asphalt: "#474a51", buildings: "#f3f4f6" };
 const SKY = { "sky-color": "#79b6ea", "horizon-color": "#e4f0fa", "fog-color": "#eef2f6", "sky-horizon-blend": .55, "horizon-fog-blend": .5, "fog-ground-blend": .85 };
+const NIGHT = { ground: "#191929", water: "#15364b", grass: "#234351", asphalt: "#343047", buildings: "#766295" };
+const NIGHT_SKY = { ...SKY, "sky-color": "#131328", "horizon-color": "#634765", "fog-color": "#24233a" };
+const buildingTint = theme => theme === "cyberpunk" ? "#61517b" : theme === "light" ? "#bfc5d1" : "#414a63";
 
 export const supported = () => { try { return !!document.createElement("canvas").getContext("webgl2"); } catch (e) { return false; } };   // (MapLibre 6 needs WebGL 2)
 
@@ -84,9 +87,9 @@ const point = (c, props = {}) => ({ type: "Feature", properties: props, geometry
 const fc = features => ({ type: "FeatureCollection", features });
 
 // el: an empty box. Returns { setTrack, setPit, setFlags, setBattles, setZones, moveCar, dropCar, setLook, view, theme, resize, destroy }
-export async function createMap(el, { dark, onCar }) {
+export async function createMap(el, { theme, onCar }) {
   const ml = await loadLib();
-  const map = new ml.Map({ container: el, style: STYLE(dark), attributionControl: { compact: true }, dragRotate: true, pitchWithRotate: true,
+  const map = new ml.Map({ container: el, style: STYLE(theme), attributionControl: { compact: true }, dragRotate: true, pitchWithRotate: true,
                            maxPitch: 85, maxZoom: 24, fadeDuration: 0, cooperativeGestures: false });
   map.touchZoomRotate.enableRotation();
   el._map = map;   // handy from the browser console
@@ -96,7 +99,7 @@ export async function createMap(el, { dark, onCar }) {
   el.appendChild(mini);
   const data = { trk: fc([]), pit: fc([]), flags: fc([]), bats: fc([]), corners: fc([]), kerbs: fc([]), pitlane: fc([]), pitbuild: fc([]) };
   let base = [];   // the base map's own layers (decorate)
-  let mode = dark, bounds = null, bearing = 0, viewNow = "3d", blink = 0, trackPts = [], lat = 0;
+  let mode = theme, bounds = null, bearing = 0, viewNow = "3d", blink = 0, trackPts = [], lat = 0;
   const riding = () => !!RIDES[viewNow];
   // a width in metres as a line width at any zoom (MapLibre's 512-pixel tiles: 78271.5 m a pixel at zoom 0, at the equator)
   const metres = (m, k = 1) => ["interpolate", ["exponential", 2], ["zoom"], 12, k * m / (78271.517 * Math.cos(lat * Math.PI / 180) / 2 ** 12), 24, k * m / (78271.517 * Math.cos(lat * Math.PI / 180) / 2 ** 24)];
@@ -114,6 +117,8 @@ export async function createMap(el, { dark, onCar }) {
     } catch (e) { map.setFilter("b3d", null); }   // a MapLibre without "distance": every building as before
   }
   function decorate() {   // our layers on top of the base map (again after every change of style)
+    const dark = mode !== "light", cyberpunk = mode === "cyberpunk";
+    const terrain = cyberpunk ? NIGHT : DAY;
     const layers = map.getStyle().layers;
     for (const l of layers) if (/^poi|^airport|housenumber/.test(l.id)) map.removeLayer(l.id);   // fewer labels over the track
     base = map.getStyle().layers.map(l => ({ id: l.id, type: l.type, shown: (l.layout || {}).visibility !== "none", water: /water/.test(l.id) || l["source-layer"] === "water",
@@ -123,7 +128,7 @@ export async function createMap(el, { dark, onCar }) {
     const firstLabel = (map.getStyle().layers.find(l => l.type === "symbol") || {}).id;
     // 3D buildings, easy to see; those within NEAR metres of the track (the ones that could stand in front of it) see-through
     const b3d = (id, opacity) => ({ id, type: "fill-extrusion", source: "openmaptiles", "source-layer": "building", minzoom: 13, filter: ["boolean", false],
-      paint: { "fill-extrusion-color": mode ? "#414a63" : "#bfc5d1", "fill-extrusion-height": ["*", TALL, ["coalesce", ["get", "render_height"], 8]],
+      paint: { "fill-extrusion-color": buildingTint(mode), "fill-extrusion-height": ["*", TALL, ["coalesce", ["get", "render_height"], 8]],
                "fill-extrusion-base": ["*", TALL, ["coalesce", ["get", "render_min_height"], 0]], "fill-extrusion-opacity": opacity, "fill-extrusion-vertical-gradient": true } });
     add(b3d("b3d", 0.95), firstLabel);
     add(b3d("b3d-near", 0.16), firstLabel);
@@ -133,26 +138,26 @@ export async function createMap(el, { dark, onCar }) {
     // up close (the views that ride with a car): grass along the track, the track and pit lane as roads at their real width
     // with white edges and red and white kerbs in the corners, and 3D cars (widths: roadWidths)
     const ride = { visibility: riding() ? "visible" : "none" }, round = { ...ride, "line-cap": "round", "line-join": "round" }, edge = ["==", ["get", "k"], "edge"];
-    add({ id: "grass", type: "line", source: "trk", filter: edge, layout: round, paint: { "line-color": DAY.grass, "line-blur": 3 } });
+    add({ id: "grass", type: "line", source: "trk", filter: edge, layout: round, paint: { "line-color": terrain.grass, "line-blur": 3 } });
     add({ id: "road-pit", type: "line", source: "pitlane", filter: ["==", ["get", "k"], "lane"], layout: round, paint: { "line-color": "#53565d" } });
     add({ id: "pit-lines", type: "line", source: "pitlane", filter: ["==", ["get", "k"], "edge"], layout: { ...ride, "line-join": "round" }, paint: { "line-color": "#f4f4f6" } });
     add({ id: "pit-div", type: "line", source: "pitlane", filter: ["==", ["get", "k"], "div"], layout: ride, paint: { "line-color": "#f4f4f6", "line-dasharray": [6, 6] } });
-    add({ id: "road", type: "line", source: "trk", filter: edge, layout: round, paint: { "line-color": DAY.asphalt } });
+    add({ id: "road", type: "line", source: "trk", filter: edge, layout: round, paint: { "line-color": terrain.asphalt } });
     for (const side of [1, -1]) {
       add({ id: "kerb-w" + side, type: "line", source: "kerbs", layout: ride, paint: { "line-color": "#f2f2f4" } });
       add({ id: "kerb-r" + side, type: "line", source: "kerbs", layout: ride, paint: { "line-color": "#d3202a", "line-dasharray": [1, 1] } });
-      add({ id: "road-edge" + side, type: "line", source: "trk", filter: edge, layout: { ...ride, "line-join": "round" }, paint: { "line-color": "#f4f4f6" } });
+      add({ id: "road-edge" + side, type: "line", source: "trk", filter: edge, layout: { ...ride, "line-join": "round" }, paint: { "line-color": cyberpunk ? "#68f6e9" : "#f4f4f6" } });
     }
     // pit wall and garages (solid), the debris fence and the garage roofs (see-through, so cars inside still show)
     for (const [id, ks, op] of [["pit-build", ["wall", "garage"], 1], ["pit-fence", ["fence"], .3], ["pit-roof", ["roof"], .45]])
       add({ id, type: "fill-extrusion", source: "pitbuild", filter: ["in", ["get", "k"], ["literal", ks]], layout: ride,
             paint: { "fill-extrusion-color": ["get", "c"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": op } });
     roadWidths();
-    try { map.setSky(SKY); } catch (e) {}
+    try { map.setSky(cyberpunk ? NIGHT_SKY : SKY); } catch (e) {}
     addCars();
-    add({ id: "pit", type: "line", source: "pit", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": mode ? "#8d93a8" : "#7a8194", "line-width": w(1, 2.5, 8), "line-dasharray": [2, 1.5] } });
+    add({ id: "pit", type: "line", source: "pit", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": dark ? "#8d93a8" : "#7a8194", "line-width": w(1, 2.5, 8), "line-dasharray": [2, 1.5] } });
     add({ id: "trk-edge", type: "line", source: "trk", filter: ["==", ["get", "k"], "edge"], layout: { "line-cap": "round", "line-join": "round" },
-                   paint: { "line-color": mode ? "#e8e8ee" : "#22232b", "line-width": w(3, 8, 26) } });
+                   paint: { "line-color": cyberpunk ? "#68f6e9" : dark ? "#e8e8ee" : "#22232b", "line-width": w(3, 8, 26) } });
     add({ id: "trk-sec", type: "line", source: "trk", filter: ["in", ["get", "k"], ["literal", ["s1", "s2", "s3"]]], layout: { "line-cap": "round", "line-join": "round" },
                    paint: { "line-color": ["match", ["get", "k"], "s1", SECTOR_COLOURS[0], "s2", SECTOR_COLOURS[1], SECTOR_COLOURS[2]], "line-width": w(1.2, 3.5, 12) } });
     add({ id: "start", type: "line", source: "trk", filter: ["==", ["get", "k"], "start"], paint: { "line-color": "#ffffff", "line-width": w(2, 4, 10) } });
@@ -160,9 +165,9 @@ export async function createMap(el, { dark, onCar }) {
                    paint: { "line-color": ["match", ["get", "k"], "red", "#e10600", "sc", "#f59e0b", "#facc15"],
                             "line-width": w(["match", ["get", "k"], "yellow", 4, 5], ["match", ["get", "k"], "yellow", 10, 12], ["match", ["get", "k"], "yellow", 30, 34]), "line-opacity": 0.9, "line-opacity-transition": { duration: 0 } } }, "trk-sec");
     add({ id: "bats", type: "line", source: "bats", layout: { "line-cap": "round" }, paint: { "line-color": "#f59e0b", "line-width": w(2, 4, 10), "line-opacity": 0.8 } });
-    add({ id: "corners", type: "circle", source: "corners", minzoom: 13.5, paint: { "circle-color": mode ? "#2a2a38" : "#ffffff", "circle-radius": 8, "circle-stroke-color": mode ? "#3a3a4a" : "#c9ccd6", "circle-stroke-width": 1 } });
+    add({ id: "corners", type: "circle", source: "corners", minzoom: 13.5, paint: { "circle-color": dark ? "#2a2a38" : "#ffffff", "circle-radius": 8, "circle-stroke-color": dark ? "#3a3a4a" : "#c9ccd6", "circle-stroke-width": 1 } });
     add({ id: "corners-n", type: "symbol", source: "corners", minzoom: 13.5, layout: { "text-field": ["to-string", ["get", "n"]], "text-font": ["Noto Sans Bold"], "text-size": 9.5, "text-allow-overlap": true, "text-ignore-placement": true },
-                   paint: { "text-color": mode ? "#a0a0ae" : "#555a66" } });
+                   paint: { "text-color": dark ? "#a0a0ae" : "#555a66" } });
   }
   map.on("style.load", decorate);
   function roadWidths() {   // widths in metres (again for a new circuit: they depend on its latitude)
@@ -178,10 +183,11 @@ export async function createMap(el, { dark, onCar }) {
     const on = riding(), vis = (id, show) => { try { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", show ? "visible" : "none"); } catch (e) {} };   // (before the style loads: its style.load does it)
     for (const id of ["grass", "road", "road-pit", "pit-lines", "pit-div", "pit-build", "pit-fence", "pit-roof", "road-edge1", "road-edge-1", "kerb-w1", "kerb-w-1", "kerb-r1", "kerb-r-1", "cars3d"]) vis(id, on);
     if (on) loadCars();
-    // the clean look: of the base map only the ground and water, in daytime colours (from afar: the base map as it was)
+    // Up close, keep just the ground and water from the base map.
+    const terrain = mode === "cyberpunk" ? NIGHT : DAY;
     const paintOf = l => l.type === "background" ? "background-color" : "fill-color";
     for (const l of base) {
-      if (l.type === "background" || (l.water && l.type === "fill")) { vis(l.id, l.shown); try { map.setPaintProperty(l.id, paintOf(l), on ? (l.water ? DAY.water : DAY.ground) : l.colour); } catch (e) {} }
+      if (l.type === "background" || (l.water && l.type === "fill")) { vis(l.id, l.shown); try { map.setPaintProperty(l.id, paintOf(l), on ? (l.water ? terrain.water : terrain.ground) : l.colour); } catch (e) {} }
       else vis(l.id, l.shown && (!on || l.water));
     }
     mini.hidden = !on;
@@ -190,7 +196,7 @@ export async function createMap(el, { dark, onCar }) {
     const tall = on ? 1 : TALL, pp = (id, k, v) => { try { if (map.getLayer(id)) map.setPaintProperty(id, k, v); } catch (e) {} };
     for (const id of ["b3d", "b3d-near"]) { pp(id, "fill-extrusion-height", ["*", tall, ["coalesce", ["get", "render_height"], 8]]); pp(id, "fill-extrusion-base", ["*", tall, ["coalesce", ["get", "render_min_height"], 0]]); }
     pp("b3d-near", "fill-extrusion-opacity", on ? .9 : .16);
-    for (const id of ["b3d", "b3d-near"]) pp(id, "fill-extrusion-color", on ? DAY.buildings : mode ? "#414a63" : "#bfc5d1");
+    for (const id of ["b3d", "b3d-near"]) pp(id, "fill-extrusion-color", on ? terrain.buildings : buildingTint(mode));
     try {   // up close the buildings go over the ground layers (the ground never hides a building); from afar the track goes over them
       const under = on ? "cars3d" : (map.getStyle().layers.find(l => l.type === "symbol") || {}).id;
       for (const id of ["b3d", "b3d-near"]) if (map.getLayer(id) && (!under || map.getLayer(under))) map.moveLayer(id, under);

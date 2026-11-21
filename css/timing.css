@@ -360,3 +360,26 @@ ol.feed > li:first-child { border-top: 0; }
 .mm-trk { fill: none; stroke: #f2f3f6; stroke-width: 2.2; stroke-linejoin: round; }
 .mm-cars circle { stroke: #fff; stroke-width: .8; }
 .mm-cars circle.mm-me { stroke: #fff; stroke-width: 2; filter: drop-shadow(0 0 3px rgba(255, 255, 255, .9)); }
+
+[data-theme="cyberpunk"] .sbar {
+  position: relative;
+  border-color: var(--trace);
+  background: linear-gradient(115deg, #122c3d, transparent 68%),
+    repeating-linear-gradient(135deg, transparent 0 9px, #39426a35 9px 10px), var(--panel);
+}
+[data-theme="cyberpunk"] .sbar::after {
+  content: ""; position: absolute; inset: 0 0 auto auto; width: 20px; height: 20px; pointer-events: none;
+  background: linear-gradient(45deg, transparent 46%, var(--pink) 47% 54%, transparent 55%);
+}
+[data-theme="cyberpunk"] .sb-ev b { color: var(--signal); }
+[data-theme="cyberpunk"] .fact { border-radius: 4px; }
+[data-theme="cyberpunk"] .fact b,
+[data-theme="cyberpunk"] #tvSyncValue,
+[data-theme="cyberpunk"] .timing td:not(:first-child) { font-family: var(--telemetry-font); }
+[data-theme="cyberpunk"] .tv-sync summary b { color: var(--signal); }
+[data-theme="cyberpunk"] .tv-sync-delay input { accent-color: var(--signal); }
+[data-theme="cyberpunk"] .mapwrap:not(.geo) {
+  background-image: linear-gradient(#25395766 1px, transparent 1px), linear-gradient(90deg, #25395766 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+[data-theme="cyberpunk"] .mm-trk { stroke: var(--signal); }

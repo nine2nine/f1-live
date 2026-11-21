@@ -130,10 +130,17 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
 });
 export function setTheme(pick) {
   store.set("f1.theme", pick);
-  const dark = pick === "dark" || (pick === "device" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const cyberpunk = pick === "cyberpunk";
+  if (!cyberpunk) store.set("f1.standardTheme", pick);
+  const dark = cyberpunk || pick === "dark" || (pick === "device" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.dataset.mode = dark ? "dark" : "light";
-  $('meta[name="theme-color"]').content = dark ? "#0b0b10" : "#eef0f4";
+  document.documentElement.dataset.theme = pick;
+  $('meta[name="theme-color"]').content = cyberpunk ? "#090b18" : dark ? "#0b0b10" : "#eef0f4";
   dispatchEvent(new Event("themechange"));
+}
+export function toggleCyberpunk() {
+  const previous = store.get("f1.standardTheme", "dark");
+  setTheme(document.documentElement.dataset.theme === "cyberpunk" ? previous : "cyberpunk");
 }
 setTheme(store.get("f1.theme", "dark"));
 

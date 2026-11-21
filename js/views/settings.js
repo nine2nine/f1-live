@@ -1,12 +1,13 @@
 // Settings: appearance, clock, your driver and team, alerts, and saved data.
-import { esc, store, tzName } from "../util.js";
+import { esc, ICONS, store, tzName } from "../util.js";
 import { clearCache } from "../api.js";
 import { drivers } from "../season.js";
 import * as main from "../main.js";
 
 const THEMES = [["light", "Light", `<svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5 1.4 3h-2.8L12 2zm0 20-1.4-3h2.8L12 22zM2 12l3-1.4v2.8L2 12zm20 0-3 1.4v-2.8l3 1.4zM4.9 4.9l3.1 1.2-2 2-1.1-3.2zm14.2 14.2-3.1-1.2 2-2 1.1 3.2zM4.9 19.1l1.2-3.1 2 2-3.2 1.1zM19.1 4.9l-1.2 3.1-2-2 3.2-1.1z"/></svg>`],
                 ["dark", "Dark", `<svg viewBox="0 0 24 24"><path d="M21 14.5A9 9 0 0 1 9.5 3a9 9 0 1 0 11.5 11.5z"/></svg>`],
-                ["device", "Device", `<svg viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v14h10V5H7zm5 15.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>`]];
+                ["device", "Device", `<svg viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v14h10V5H7zm5 15.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg>`],
+                ["cyberpunk", "Cyberpunk", ICONS.cyberpunk]];
 
 export default {
   title: "Settings",
@@ -14,7 +15,7 @@ export default {
   async mount(el, params, app) {
     el.innerHTML = `<div class="settings">
       <section class="card"><h2 class="card-h">Appearance</h2><div class="card-b">
-        <div class="tiles" id="themes">${THEMES.map(([k, l, svg]) => `<button type="button" data-t="${k}">${svg}${l}</button>`).join("")}</div></div></section>
+        <div class="tiles" id="themes" role="group" aria-label="Appearance">${THEMES.map(([k, l, svg]) => `<button type="button" data-t="${k}">${svg}${l}</button>`).join("")}</div></div></section>
       <section class="card"><h2 class="card-h">Times</h2><div class="card-b">
         <div class="toggles"><div class="trow"><span>Clock<small>Every time is shown in your own time zone (${esc(tzName())})</small></span>
           <span class="seg" id="clock"><button type="button" data-c="24">24-hour</button><button type="button" data-c="12">12-hour</button></span></div></div></div></section>
