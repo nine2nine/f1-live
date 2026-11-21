@@ -55,6 +55,7 @@ In the same style as the [Alert Watch](https://github.com/IsaraApae/alert-watch)
 | [Open-Meteo](https://open-meteo.com) | Forecasts at the circuit |
 | Formula 1's pictures (`media.formula1.com`) | Driver photos, team logos and cars, flags and circuit drawings |
 | [Titillium Web](https://fonts.google.com/specimen/Titillium+Web) (SIL Open Font License, in `fonts/`) | The headings' font |
+| [Orbitron](https://github.com/theleagueof/orbitron) and [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) (SIL Open Font License, in `fonts/`) | Cyberpunk headings and timing readouts |
 | [MediaPipe](https://github.com/google-ai-edge/mediapipe) | Cutting 2023's driver photos out of their studio backdrop, in the browser |
 | Publishers' RSS feeds | Headlines (collected by `scripts/news.mjs` when the site is published) |
 | `pitlanes.json` (built from OpenF1 by `scripts/pitlanes.mjs`) | Every circuit's pit lane for the Live tab: one ordinary stop's path from the circuit's latest race. OpenF1 only answers free requests between sessions, so the Live tab doesn't ask it during one |
