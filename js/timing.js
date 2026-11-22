@@ -5,6 +5,7 @@ import { liveTracker } from "./livepos.js";
 import { createTvSync, MAX_DELAY } from "./tv-sync.js";
 import { liveLapHistory } from "./lap-timing.js";
 import { lapComparisonMarkup, mountLapComparison } from "./lap-comparison.js";
+import { raceFlowData, raceFlowMarkup, mountRaceFlow } from "./race-flow.js";
 import { of1, jolpica, forecast, forecastFor } from "./api.js";
 import { currentSeason, season as seasonOf, allSessions } from "./season.js";
 import * as A from "./analysis.js";
@@ -162,14 +163,15 @@ function setLive(state) {
 
 // ---------- replay: any past session, rebuilt from OpenF1 ----------
 export const R = { t: 0, start: 0, end: 0, playing: false, speed: 1, data: null, last: 0, dirty: false };
-let replayToken = 0;
-async function startReplay(key) {
+let replayToken = 0, raceFlow = null, flowModel = null, quickFlow = false;
+async function startReplay(key, openFlow) {
   const token = ++replayToken;
   mode = "replay"; R.playing = false; R.data = null; S = {}; radioSeen = null; rcSeen = null; towerHead = ""; dirty = true; resetCars();
   if (ws) { const old = ws; ws = null; old.close(); }
   setLive("loading"); $("rbar").hidden = false; $("event").textContent = "Loading the replay…"; $("sub").textContent = "";
   try {
     const [sess] = await of1(`sessions?session_key=${key}`, { ttl: 7 * 86400000 });   // (small: localStorage)
+    if (token !== replayToken) return;
     if (!sess) throw new Error("no such session");
     if (Date.parse(sess.date_end) > Date.now()) { $("event").textContent = "This session hasn't finished yet"; $("sub").textContent = "Replays are ready once a session is over. Watch it on the Live tab."; setLive("waiting"); return; }
     const names = ["drivers", "laps", "position", "stints", "pit", "race_control", "team_radio", "weather", "session_result"];
@@ -195,7 +197,15 @@ async function startReplay(key) {
     R.data = prepare(sess, meet || {}, got);
     R.start = R.data.start; R.end = R.data.end; R.t = R.start; R.speed = store.get("f1.speed", 1); R.last = 0;
     for (const x of $("rSpeed").children) x.setAttribute("aria-pressed", String(+x.dataset.s === R.speed));
-    buildReplay(); drawMarks(); setLive("replay"); R.playing = true; syncReplayBar();
+    buildReplay();
+    const bands = drawMarks();
+    if (sess.session_type === "Race" || sess.session_name === "Sprint") {
+      flowModel = raceFlowData(R.data, bands);
+      $("tsubs").querySelector('[data-k="flow"]').hidden = false;
+      $("flowSwitch").hidden = false;
+      if (openFlow) setSub("flow");
+    }
+    setLive("replay"); R.playing = true; syncReplayBar();
     A.start(R.data);
     if (APP) APP.setTitle(`${SHORT[sess.session_name] || sess.session_name} · ${(R.data.meet.meeting_name || sess.country_name || "").replace("Grand Prix", "GP")}`);
   } catch (e) {
@@ -415,7 +425,11 @@ export function flagState(msgs) {   // the track's state from race control's mes
 function replayTick() {
   if (mode !== "replay" || !R.data) return;
   const real = performance.now(), dt = R.last ? real - R.last : 0; R.last = real;
-  if (R.playing) { R.t = Math.min(R.end, R.t + dt * R.speed); if (R.t >= R.end) R.playing = false; }
+  if (R.playing) {
+    const speed = quickFlow ? (R.end - R.start) / 20000 : R.speed;
+    R.t = Math.min(R.end, R.t + dt * speed);
+    if (R.t >= R.end) { R.playing = false; R.dirty = true; setQuickFlow(false); }
+  }
   if (R.playing || R.dirty) { R.dirty = false; buildReplay(); syncReplayBar(); }
 }
 export function lapAt(t) {   // the leader's lap at a moment of the replay
@@ -497,6 +511,7 @@ function drawMarks() {   // the replay timeline: yellow flag, safety car, VSC an
   }
   $("rEvents").innerHTML = kept.map(L => `<span class="${L.cls}" style="left:${x(L.at).toFixed(2)}%">${L.cls.startsWith("ev") ? "<i></i>" : ""}${esc(L.label)}</span>`).join("")
     + evs.filter(e => !kept.some(k => k.at === e.at && k.label === e.label)).map(e => `<span class="ev ${e.cls}" style="left:${x(e.at).toFixed(2)}%"><i></i></span>`).join("");
+  return bands;
 }
 
 // ---------- the session bar ----------
@@ -1517,7 +1532,7 @@ const GROUPS = [["timing", "Timing"], ["laps", "Laps"], ["track", "Track"], ["rc
 const TAB_REPLAY = ["analysis", "Analysis"];
 const panel = (id, groups, head, body, extra = "") => `<section class="card panel" id="${id}" data-g="${groups}" ${extra}><h2 class="card-h">${head}</h2>${body}</section>`;
 function markup(replay) {
-  const groups = replay ? [...GROUPS, TAB_REPLAY] : GROUPS;
+  const groups = replay ? [["flow", "Race flow"], ...GROUPS, TAB_REPLAY] : GROUPS;
   return `<style id="colcss"></style>
   <section class="card sbar">
     <div class="sb-top"><img class="flag" id="flag" alt="" hidden><div class="sb-ev"><b id="event">${replay ? "Loading the replay…" : "Connecting to live timing…"}</b><span id="sub"></span></div><span class="badge" id="live">${replay ? "LOADING" : "CONNECTING"}</span></div>
@@ -1530,6 +1545,7 @@ function markup(replay) {
       <div class="fact" id="windBox" hidden><small>Wind</small><b id="wind"></b></div>
       <div class="fact" id="rainBox" hidden><small>Rain</small><b id="rain"></b></div>
       <div class="fact" id="chanceBox" hidden><small>Rain chance</small><b id="chance"></b></div>
+      ${replay ? '<button class="btn small" id="flowSwitch" type="button" aria-pressed="false" hidden>Race flow</button>' : ""}
     </div>
     ${replay ? "" : tvSyncMarkup}
   </section>
@@ -1538,8 +1554,10 @@ function markup(replay) {
     <div class="count" id="nextCount"></div>
     <a class="btn" id="nextReplay" hidden></a>
   </section>
-  <div class="seg wide tsubs" id="tsubs" role="group" aria-label="Panels">${groups.map(([k, l]) => `<button type="button" data-k="${k}">${l}</button>`).join("")}</div>
+  <div class="seg wide tsubs" id="tsubs" role="group" aria-label="Panels">${groups.map(([k, l]) => `<button type="button" data-k="${k}" ${k === "flow" ? "hidden" : ""}>${l}</button>`).join("")}</div>
   <div class="tgrid" id="tgrid">
+    ${replay ? panel("p-flow", "flow", `<span>Race flow <small id="flowLap"></small></span>
+      <button class="btn small" id="flowQuick" type="button" aria-pressed="false">Quick replay</button>`, raceFlowMarkup) : ""}
     <div class="tcol">
       ${panel("p-tower", "timing", `<span>Timing <small id="part"></small> <small id="batN"></small> <small id="followHint">· tap a driver to follow</small></span><span class="hd-tools"><button class="btn small ghost lap-jump" id="lapJump" type="button">Lap times</button><button class="btn small ghost" id="colsBtn" type="button">Columns</button></span>`,
         `<div class="scroll"><table id="tower"></table></div>`)}
@@ -1607,17 +1625,36 @@ const pressView = () => {
     b.disabled = RIDES.has(b.dataset.v) && !canRide; b.title = b.disabled ? "Needs cars on track: a live session or a replay" : "";
   }
 };
-function setSub(k) {   // phone: which group of panels shows
+function setSub(k) {
   const tabs = [...$("tsubs").children];
-  if (!tabs.some(b => b.dataset.k === k)) k = "timing";
+  if (!tabs.some(b => b.dataset.k === k && !b.hidden)) k = "timing";
   for (const b of tabs) b.setAttribute("aria-pressed", String(b.dataset.k === k));
   $("tgrid").dataset.show = k;
-  store.set("f1.sub", k);
+  const switcher = $("flowSwitch");
+  if (switcher) {
+    switcher.setAttribute("aria-pressed", String(k === "flow"));
+    switcher.textContent = k === "flow" ? "Overview" : "Race flow";
+  }
+  if (k === "flow") renderRaceFlow();
+  else {
+    store.set("f1.sub", k);
+    if (quickFlow) setQuickFlow(false);
+  }
   if (mapView !== "classic" && mapShown()) G.preload();   // the map library and circuit shapes, while the session itself loads
   if (k === "track" && circuit) drawCircuit();   // the map's box depends on its width (and the real map starts here on a phone)
   if (k === "track" && geo) requestAnimationFrame(() => geo && geo.resize());
   if (k === "laps") renderLaps();
   A.shown(k);
+}
+function renderRaceFlow() {
+  if (!flowModel || $("tgrid").dataset.show !== "flow") return;
+  $("flowQuick").disabled = flowModel.stops.length < 2 || !flowModel.field.size;
+  raceFlow(flowModel, R.t, follow);
+}
+function setQuickFlow(enabled) {
+  quickFlow = enabled;
+  $("flowQuick").setAttribute("aria-pressed", String(enabled));
+  for (const b of $("rSpeed").children) b.setAttribute("aria-pressed", String(!enabled && +b.dataset.s === R.speed));
 }
 let lapComparison = null;
 function renderLaps() {
@@ -1698,6 +1735,13 @@ function wire(root) {
     store.set("f1.hide", [...hiddenCols]); applyColumns();
   });
   if (!$("rbar")) return;
+  on("flowSwitch", "click", () => setSub($("tgrid").dataset.show === "flow" ? store.get("f1.sub", "timing") : "flow"));
+  on("flowQuick", "click", () => {
+    if (!flowModel) return;
+    if (quickFlow) { setQuickFlow(false); return; }
+    setQuickFlow(true);
+    R.playing = true; R.last = 0; seekTo(R.start);
+  });
   on("rPlay", "click", () => { if (!R.data) return; if (R.t >= R.end) R.t = R.start; R.playing = !R.playing; R.last = 0; syncReplayBar(); });
   on("rBack", "click", () => { R.t = Math.max(R.start, R.t - 30000); R.dirty = true; resetCars(); });
   on("rFwd", "click", () => { R.t = Math.min(R.end, R.t + 30000); R.dirty = true; resetCars(); });
@@ -1712,11 +1756,15 @@ function wire(root) {
   on("rSpeed", "click", e => {
     const b = e.target.closest("button"); if (!b) return;
     R.speed = +b.dataset.s; store.set("f1.speed", R.speed);
-    for (const x of $("rSpeed").children) x.setAttribute("aria-pressed", String(x === b));
+    setQuickFlow(false);
   });
 }
 // jump the replay to a moment (from the analysis panels)
-export function seekTo(t) { if (!R.data) return; R.t = Math.max(R.start, Math.min(R.end, t)); R.dirty = true; resetCars(); syncReplayBar(); }
+export function seekTo(t) {
+  if (!R.data) return;
+  R.t = Math.max(R.start, Math.min(R.end, t)); R.dirty = true;
+  resetCars(); syncReplayBar(); renderRaceFlow();
+}
 
 let tick = 0;
 function frame() {
@@ -1731,7 +1779,7 @@ function frame() {
     dirty = false;
     renderHeader(); renderTower(); renderLaps(); renderBests(); renderRaceControl(); renderPenalties(); renderPositions(); renderStrategy(); renderPits(); renderFollow();
     notifyRaceControl(); renderRadio(); renderChampionship(); renderSectors(); renderFlags();
-    if (mode === "replay") A.render();
+    if (mode === "replay") { A.render(); renderRaceFlow(); }
   }
   else if (++tick % 8 === 0) renderRadio();   // "x min ago"
   renderClock();
@@ -1748,7 +1796,7 @@ function settle() { unsettled.classList.remove("settling"); unsettled = null; }
 const timers = [];
 const offs = [];
 // put the timing screen in `el`: live, or a replay of session `replay` (an OpenF1 session key). Returns the clean-up function.
-export function mountTiming(el, { replay = null, app = null } = {}) {
+export function mountTiming(el, { replay = null, app = null, openFlow = false } = {}) {
   stop();
   APP = app;
   S = {}; live.clear(); lapLog.length = 0; for (const k in pitLog) delete pitLog[k];
@@ -1770,6 +1818,10 @@ export function mountTiming(el, { replay = null, app = null } = {}) {
   pressView();
   mode = replay ? "replay" : "live";
   lapComparison = mountLapComparison($("p-laps"));
+  raceFlow = replay ? mountRaceFlow($("p-flow"), {
+    step(at) { R.playing = false; setQuickFlow(false); seekTo(at); },
+    highlight: setFollow
+  }) : null;
   tvSync = replay ? null : createTvSync(store.get("f1.tvDelay", 0));
   latestLap = lapCrossedAt = null;
   lastFrame = lastLiveFrame = 0;
@@ -1786,13 +1838,14 @@ export function mountTiming(el, { replay = null, app = null } = {}) {
   const tabbed = matchMedia("(max-width: 1099px)"), unfold = () => { if (circuit && !geo) setupGeo(); };
   tabbed.addEventListener("change", unfold); offs.push(() => tabbed.removeEventListener("change", unfold));
   const retheme = () => { champKey = ""; dirty = true; if (geo) geo.theme(mapTheme()); }; addEventListener("themechange", retheme); offs.push(() => removeEventListener("themechange", retheme));
-  if (replay) startReplay(+replay); else connect();
+  if (replay) startReplay(+replay, openFlow); else connect();
   return stop;
 }
 function stop() {
   if (mode === "off" && !timers.length) return;
   mode = "off"; replayToken++;
   lapComparison = null;
+  raceFlow = flowModel = null; quickFlow = false;
   tvSync = null;
   while (timers.length) clearInterval(timers.pop());
   while (offs.length) offs.pop()();
